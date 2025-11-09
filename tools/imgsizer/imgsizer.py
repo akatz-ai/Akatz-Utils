@@ -3,6 +3,8 @@
 Image Resizer - A GUI utility for resizing and compressing images.
 """
 
+from __future__ import annotations
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk, ImageOps

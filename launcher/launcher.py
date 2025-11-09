@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Callable
 import importlib
+from PIL import Image, ImageTk
+import os
 
 
 class ToolInfo:
@@ -24,8 +26,9 @@ class UtilsLauncher:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Akatz Utils Launcher")
-        self.root.geometry("700x500")
-        self.root.resizable(False, False)
+        self.root.geometry("700x600")
+        self.root.resizable(True, True)
+        self.root.minsize(600, 400)
 
         # Define available tools
         self.tools: List[ToolInfo] = [
@@ -54,6 +57,24 @@ class UtilsLauncher:
         title_frame = ttk.Frame(self.root, padding="20")
         title_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N))
 
+        # Logo in top right
+        logo_path = Path(__file__).parent / "assets" / "akatz_logo_small.png"
+        if logo_path.exists():
+            try:
+                logo_image = Image.open(logo_path)
+                # Resize logo if needed (max height 80px)
+                max_height = 80
+                if logo_image.height > max_height:
+                    ratio = max_height / logo_image.height
+                    new_width = int(logo_image.width * ratio)
+                    logo_image = logo_image.resize((new_width, max_height), Image.Resampling.LANCZOS)
+
+                self.logo_photo = ImageTk.PhotoImage(logo_image)
+                logo_label = ttk.Label(title_frame, image=self.logo_photo)
+                logo_label.grid(row=0, column=1, rowspan=2, sticky=tk.E, padx=(20, 0))
+            except Exception as e:
+                print(f"Failed to load logo: {e}")
+
         title_label = ttk.Label(
             title_frame,
             text="Akatz Utilities",
@@ -68,6 +89,10 @@ class UtilsLauncher:
             foreground='gray'
         )
         subtitle_label.grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
+
+        # Configure title_frame columns
+        title_frame.columnconfigure(0, weight=1)
+        title_frame.columnconfigure(1, weight=0)
 
         # Separator
         separator = ttk.Separator(self.root, orient='horizontal')
@@ -84,13 +109,23 @@ class UtilsLauncher:
         # Create scrollable frame inside canvas
         scrollable_frame = ttk.Frame(canvas)
 
+        # Configure scrollable_frame to expand
+        scrollable_frame.columnconfigure(0, weight=1)
+
         # Configure canvas scrolling
         scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        # Create window in canvas with proper width binding
+        window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+
+        # Bind canvas width to scrollable frame width
+        def on_canvas_configure(event):
+            canvas.itemconfig(window_id, width=event.width)
+
+        canvas.bind("<Configure>", on_canvas_configure)
         canvas.configure(yscrollcommand=scrollbar.set)
 
         # Pack canvas and scrollbar
@@ -182,7 +217,7 @@ class UtilsLauncher:
             thread.start()
 
             # Show confirmation
-            self.show_launch_notification(tool.name)
+            # self.show_launch_notification(tool.name)
 
         except ImportError as e:
             messagebox.showerror(
