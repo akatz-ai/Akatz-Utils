@@ -1,0 +1,14 @@
+[project]
+name = "akatz-utils"
+version = "0.1.0"
+description = "A collection of utility tools for common tasks"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+[tool.uv.workspace]
+members = ["tools/*", "launcher"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
