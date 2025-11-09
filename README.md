@@ -12,7 +12,7 @@ A collection of utility tools for common tasks, managed as a Python monorepo usi
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.9 or higher
 - [uv](https://docs.astral.sh/uv/) package manager
 
 ### Quick Start

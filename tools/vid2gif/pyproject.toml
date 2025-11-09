@@ -3,7 +3,7 @@ name = "vid2gif"
 version = "0.1.0"
 description = "A simple GUI tool for converting video files to GIF"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
