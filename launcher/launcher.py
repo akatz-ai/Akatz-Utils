@@ -73,13 +73,39 @@ class UtilsLauncher:
         separator = ttk.Separator(self.root, orient='horizontal')
         separator.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=20)
 
-        # Tools frame
-        tools_frame = ttk.Frame(self.root, padding="20")
-        tools_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Scrollable tools frame container
+        container = ttk.Frame(self.root)
+        container.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=20, pady=10)
+
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(container, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+
+        # Create scrollable frame inside canvas
+        scrollable_frame = ttk.Frame(canvas)
+
+        # Configure canvas scrolling
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Enable mousewheel scrolling
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
 
         # Create a button for each tool
         for idx, tool in enumerate(self.tools):
-            self.create_tool_button(tools_frame, tool, idx)
+            self.create_tool_button(scrollable_frame, tool, idx)
 
         # Footer frame
         footer_frame = ttk.Frame(self.root, padding="20")
@@ -96,6 +122,8 @@ class UtilsLauncher:
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(2, weight=1)
+        container.columnconfigure(0, weight=1)
+        container.rowconfigure(0, weight=1)
 
     def create_tool_button(self, parent: ttk.Frame, tool: ToolInfo, index: int):
         """Create a styled button for a tool"""
