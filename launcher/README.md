@@ -1,11 +1,13 @@
 # Akatz Utils Launcher
 
-GUI launcher for the Akatz Utils collection.
+GUI launcher for the Akatz Utils tool collection.
 
 ## Installation
 
+From the repository root:
+
 ```bash
-uv tool install launcher
+uv tool install ./launcher
 ```
 
 ## Usage

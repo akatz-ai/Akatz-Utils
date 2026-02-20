@@ -1,6 +1,6 @@
 # Akatz Utils
 
-A collection of utility tools for common tasks, managed as a Python monorepo using UV workspaces.
+A collection of GUI utility tools for common tasks, managed as a Python monorepo using UV workspaces.
 
 ## Tools Included
 
@@ -20,10 +20,12 @@ A collection of utility tools for common tasks, managed as a Python monorepo usi
 Clone the repository and install the launcher:
 
 ```bash
-git clone https://github.com/yourusername/akatz-utils.git
-cd akatz-utils
-uv tool install launcher
+git clone https://github.com/akatz-ai/Akatz-Utils.git
+cd Akatz-Utils
+uv tool install ./launcher
 ```
+
+> **Note:** Do not use `uv tool install launcher` (without `./`) — that installs an unrelated package from PyPI.
 
 ### Usage
 
@@ -41,9 +43,9 @@ If you prefer to install tools individually without the launcher:
 
 ```bash
 # From the repository root
-uv tool install tools/pdf2md
-uv tool install tools/vid2gif
-uv tool install tools/imgsizer
+uv tool install ./tools/pdf2md
+uv tool install ./tools/vid2gif
+uv tool install ./tools/imgsizer
 ```
 
 Then run them directly:
@@ -60,9 +62,13 @@ imgsizer
 
 ```
 akatz-utils/
-├── pyproject.toml          # Workspace configuration
+├── pyproject.toml          # UV workspace configuration
 ├── launcher/               # GUI launcher package
+│   ├── __init__.py
+│   ├── __main__.py
 │   ├── launcher.py
+│   ├── assets/
+│   │   └── akatz_logo_small.png
 │   └── pyproject.toml
 └── tools/                  # Individual utility tools
     ├── pdf2md/
@@ -79,19 +85,20 @@ The project uses UV workspaces to manage multiple packages in a monorepo:
 uv sync
 
 # Run a specific tool in development
-uv run --package pdf2md python -m pdf2md
+uv run --package pdf2md pdf2md
 
-# Build all packages
-uv build --all
+# Run the launcher in development
+uv run --package akatz-utils-launcher akatz-utils
 ```
 
 ### Adding a New Tool
 
 1. Create a new directory under `tools/`
-2. Add a `pyproject.toml` with proper metadata
-3. Implement your tool with a `main()` function
+2. Add a `pyproject.toml` with proper metadata and a `[project.scripts]` entry
+3. Implement your tool with a `main()` function and a tkinter GUI
 4. Add the tool to `launcher/launcher.py` in the `tools` list
-5. Add workspace dependency in `launcher/pyproject.toml`
+5. Add the workspace dependency in `launcher/pyproject.toml` under `[project.dependencies]` and `[tool.uv.sources]`
+6. Add it as a workspace member in the root `pyproject.toml`
 
 ## License
 
