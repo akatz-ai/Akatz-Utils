@@ -1,7 +1,7 @@
 [project]
 name = "vid2gif"
 version = "0.1.0"
-description = "A simple GUI tool for converting video files to GIF"
+description = "Video to GIF conversion utilities"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -13,15 +13,15 @@ dependencies = [
     "pillow>=11.3.0",
 ]
 
-[project.scripts]
-vid2gif = "vid2gif:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = []
+
+[tool.hatch.build]
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

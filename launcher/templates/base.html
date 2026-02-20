@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Akatz Utils Hub{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="nav-brand">
+            <img src="{{ url_for('static', filename='img/akatz_logo_small.png') }}" alt="Logo" class="nav-logo">
+            <span>Akatz Utils</span>
+        </a>
+        <div class="nav-links">
+            <a href="/">Hub</a>
+            <a href="/imgsizer">ImgSizer</a>
+            <a href="/pdf2md">PDF2MD</a>
+            <a href="/vid2gif">Vid2GIF</a>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

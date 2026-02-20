@@ -1,6 +1,6 @@
-"""Vid2GIF - A simple GUI tool for converting videos to GIF files."""
+"""Vid2GIF - Video to GIF conversion utilities."""
 
-from .vid2gif import main, VideoToGifConverter
+from .vid2gif import convert_video
 
 __version__ = "0.1.0"
-__all__ = ["main", "VideoToGifConverter"]
+__all__ = ["convert_video"]

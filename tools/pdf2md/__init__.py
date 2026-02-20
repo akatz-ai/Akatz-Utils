@@ -1,6 +1,6 @@
-"""PDF2MD - A simple GUI tool for converting PDF files to Markdown."""
+"""PDF2MD - PDF to Markdown conversion utilities."""
 
-from .pdf2md import main, PDF2MDConverter
+from .pdf2md import convert_pdf, format_size
 
 __version__ = "0.1.0"
-__all__ = ["main", "PDF2MDConverter"]
+__all__ = ["convert_pdf", "format_size"]

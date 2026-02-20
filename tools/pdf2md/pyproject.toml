@@ -1,7 +1,7 @@
 [project]
 name = "pdf2md"
 version = "0.1.0"
-description = "A simple GUI tool for converting PDF files to Markdown"
+description = "PDF to Markdown conversion utilities"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -12,15 +12,15 @@ dependencies = [
     "pdfplumber>=0.11.4",
 ]
 
-[project.scripts]
-pdf2md = "pdf2md:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = []
+
+[tool.hatch.build]
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

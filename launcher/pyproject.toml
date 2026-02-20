@@ -1,7 +1,7 @@
 [project]
 name = "akatz-utils-launcher"
 version = "0.1.0"
-description = "GUI launcher for Akatz utility tools"
+description = "Web-based launcher hub for Akatz utility tools"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
@@ -9,6 +9,7 @@ authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
 dependencies = [
+    "flask>=3.0",
     "pdf2md",
     "vid2gif",
     "imgsizer",
@@ -28,6 +29,9 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = []
+
+[tool.hatch.build]
+dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

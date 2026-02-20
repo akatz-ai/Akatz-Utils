@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Image Resizer - Akatz Utils{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Image Resizer</h1>
+    <p>Resize and compress images with live preview and quality control</p>
+</div>
+
+<div class="dropzone" id="dropzone">
+    <div class="dropzone-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </div>
+    <p>Drag &amp; drop an image here, or click to browse</p>
+    <p class="dropzone-hint">JPG, PNG, GIF, BMP, WebP, TIFF</p>
+    <p class="dropzone-filename" id="filename"></p>
+    <input type="file" id="fileInput" accept="image/*">
+</div>
+
+<div class="panels" id="editor" style="display:none">
+    <div>
+        <div class="panel">
+            <div class="panel-title">Preview</div>
+            <div class="preview-area" id="previewArea">
+                <span class="preview-placeholder">Loading preview...</span>
+            </div>
+        </div>
+    </div>
+    <div>
+        <div class="panel">
+            <div class="panel-title">Dimensions</div>
+            <div class="control-group">
+                <div class="control-label"><span>Width</span><span class="control-value" id="widthVal">0 px</span></div>
+                <input type="range" id="widthSlider" min="10" max="5000" value="100">
+            </div>
+            <div class="control-group">
+                <div class="control-label"><span>Height</span><span class="control-value" id="heightVal">0 px</span></div>
+                <input type="range" id="heightSlider" min="10" max="5000" value="100">
+            </div>
+            <div class="toggle-row">
+                <input type="checkbox" id="aspectLock" checked>
+                <label for="aspectLock">Lock aspect ratio</label>
+            </div>
+            <div class="control-group" id="modeGroup" style="display:none">
+                <div class="control-label"><span>Resize Mode</span></div>
+                <div class="radio-group">
+                    <label><input type="radio" name="mode" value="stretch" checked> Stretch</label>
+                    <label><input type="radio" name="mode" value="crop"> Crop</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top:1rem">
+            <div class="panel-title">Compression</div>
+            <div class="control-group">
+                <div class="control-label"><span>JPEG Quality</span><span class="control-value" id="qualityVal">85%</span></div>
+                <input type="range" id="qualitySlider" min="10" max="100" value="85">
+            </div>
+            <hr class="divider">
+            <div class="control-group">
+                <div class="control-label"><span>Target Size</span><span class="control-value" id="targetVal">1024 KB</span></div>
+                <input type="range" id="targetSlider" min="50" max="10240" value="1024">
+            </div>
+            <button class="btn btn-secondary btn-full" id="autoAdjust">Auto-Adjust to Target</button>
+        </div>
+
+        <div class="panel" style="margin-top:1rem">
+            <div class="panel-title">Stats</div>
+            <div class="stats-box" id="statsBox">
+                <div class="stat-row"><span class="stat-label">Dimensions</span><span class="stat-value" id="statDims">-</span></div>
+                <div class="stat-row"><span class="stat-label">Estimated size</span><span class="stat-value" id="statSize">-</span></div>
+                <div class="stat-row"><span class="stat-label">Quality</span><span class="stat-value" id="statQuality">-</span></div>
+                <div class="stat-row"><span class="stat-label">vs Target</span><span class="stat-value" id="statTarget">-</span></div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-top:1rem">
+            <div class="panel-title">Presets</div>
+            <div class="preset-grid">
+                <button class="btn btn-secondary" data-preset="1920,1080,85">Web 1920x1080</button>
+                <button class="btn btn-secondary" data-preset="800,600,70">Email 800x600</button>
+                <button class="btn btn-secondary" data-preset="150,150,80">Thumbnail 150x150</button>
+                <button class="btn btn-secondary" data-preset="1200,630,85">Social 1200x630</button>
+            </div>
+        </div>
+
+        <div class="btn-row" style="margin-top:1rem">
+            <select id="exportFormat" style="width:auto;flex:0 0 auto">
+                <option value="JPEG">JPEG</option>
+                <option value="PNG">PNG</option>
+            </select>
+            <button class="btn btn-primary btn-full" id="exportBtn" disabled>Export Image</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/imgsizer.js') }}"></script>
+{% endblock %}
