@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}YouTube Clipper - Akatz Utils{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ytclipper.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>YouTube Clipper</h1>
+    <p>Trim a YouTube video and export the selected audio</p>
+</div>
+
+<div class="yt-shell">
+    <div class="panel yt-url-panel">
+        <div class="yt-url-bar">
+            <input type="text" id="ytUrlInput" placeholder="Paste YouTube URL..." autocomplete="off">
+            <button class="btn btn-primary" id="ytLoadBtn">Load</button>
+        </div>
+    </div>
+
+    <div class="panel yt-player-panel" id="ytPlayerSection" hidden>
+        <div id="ytPlayerContainer"></div>
+    </div>
+
+    <div class="panel yt-controls-panel" id="ytControlsSection" hidden>
+        <div id="ytTimelineOverview">
+            <div id="ytOverviewSelection"></div>
+            <div id="ytOverviewViewport"></div>
+            <div id="ytOverviewPlayhead"></div>
+        </div>
+
+        <div id="ytTimeline">
+            <div id="ytTimelineSelection"></div>
+            <div id="ytHandleStart"><div class="yt-handle-grip"></div></div>
+            <div id="ytHandleEnd"><div class="yt-handle-grip"></div></div>
+            <div id="ytTimelinePlayhead"></div>
+        </div>
+
+        <div class="yt-zoom-controls">
+            <button class="btn btn-secondary yt-icon-btn" id="ytZoomOutBtn" title="Zoom out">-</button>
+            <button class="btn btn-secondary yt-icon-btn" id="ytZoomInBtn" title="Zoom in">+</button>
+            <button class="btn btn-secondary" id="ytZoomFitBtn">Fit Selection</button>
+            <span id="ytZoomLevel"></span>
+        </div>
+
+        <div class="yt-time-controls">
+            <div class="yt-time-group">
+                <label for="ytStartInput">Start</label>
+                <input type="text" id="ytStartInput" value="0:00">
+                <button class="btn btn-secondary" id="ytSetStartBtn">Set Start</button>
+            </div>
+            <div class="yt-time-group">
+                <label for="ytEndInput">End</label>
+                <input type="text" id="ytEndInput" value="0:00">
+                <button class="btn btn-secondary" id="ytSetEndBtn">Set End</button>
+            </div>
+        </div>
+
+        <div class="yt-download-controls">
+            <select id="ytFormatSelect">
+                <option value="mp3">MP3</option>
+                <option value="flac">FLAC</option>
+            </select>
+            <button class="btn btn-primary" id="ytDownloadBtn">Download Clip</button>
+        </div>
+    </div>
+
+    <div id="ytStatus" class="yt-status" hidden></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/ytclipper.js') }}"></script>
+{% endblock %}

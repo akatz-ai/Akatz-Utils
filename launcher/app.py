@@ -24,6 +24,12 @@ TOOLS = [
         "description": "Convert video files to GIF with customizable size, duration, and dimensions",
         "icon": "film",
     },
+    {
+        "id": "ytclipper",
+        "name": "YouTube Clipper",
+        "description": "Trim YouTube videos and export the selected audio as MP3 or FLAC",
+        "icon": "youtube",
+    },
 ]
 
 
@@ -43,9 +49,11 @@ def create_app() -> Flask:
     from .routes.imgsizer import bp as imgsizer_bp
     from .routes.pdf2md import bp as pdf2md_bp
     from .routes.vid2gif import bp as vid2gif_bp
+    from .routes.ytclipper import bp as ytclipper_bp
 
     app.register_blueprint(imgsizer_bp)
     app.register_blueprint(pdf2md_bp)
     app.register_blueprint(vid2gif_bp)
+    app.register_blueprint(ytclipper_bp)
 
     return app

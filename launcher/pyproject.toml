@@ -3,7 +3,7 @@ name = "akatz-utils-launcher"
 version = "0.1.0"
 description = "Web-based launcher hub for Akatz utility tools"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
@@ -13,6 +13,7 @@ dependencies = [
     "pdf2md",
     "vid2gif",
     "imgsizer",
+    "ytclipper",
 ]
 
 [project.scripts]
@@ -22,6 +23,7 @@ akatz-utils = "launcher:main"
 pdf2md = { workspace = true }
 vid2gif = { workspace = true }
 imgsizer = { workspace = true }
+ytclipper = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -35,3 +37,6 @@ dev-mode-dirs = [".."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.hatch.build.targets.wheel.sources]
+"." = "launcher"
