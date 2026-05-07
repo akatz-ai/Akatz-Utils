@@ -1,4 +1,4 @@
-"""YouTube audio clip extraction utilities."""
+"""YouTube clip extraction utilities."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Literal
 
 import yt_dlp
 
-AudioFormat = Literal["mp3", "flac"]
+ClipFormat = Literal["mp3", "flac", "mp4"]
 
 CHUNK_SIZE = 8192
 MAX_CLIP_DURATION = 600
@@ -46,10 +46,20 @@ def sanitize_title(title: str) -> str:
     return re.sub(r'[\\/:*?"<>|]', "", title).strip() or "clip"
 
 
-def extract_audio_url(youtube_url: str) -> tuple[str, str, dict[str, str]]:
-    """Extract the best audio stream URL, sanitized title, and HTTP headers."""
+def extract_media_url(
+    youtube_url: str,
+    fmt: ClipFormat,
+) -> tuple[str, str, dict[str, str]]:
+    """Extract a source stream URL, sanitized title, and HTTP headers."""
+    yt_format = "bestaudio/best"
+    if fmt == "mp4":
+        yt_format = (
+            "best[ext=mp4][vcodec!=none][acodec!=none]/"
+            "best[vcodec!=none][acodec!=none]/best"
+        )
+
     opts = {
-        "format": "bestaudio/best",
+        "format": yt_format,
         "extractor_args": {
             "youtube": {
                 "player_client": ["web", "ios", "android"],
@@ -75,10 +85,10 @@ def extract_audio_url(youtube_url: str) -> tuple[str, str, dict[str, str]]:
 
 
 def _build_ffmpeg_args(
-    audio_url: str,
+    media_url: str,
     start: float,
     duration: float,
-    fmt: AudioFormat,
+    fmt: ClipFormat,
     headers: dict[str, str] | None = None,
 ) -> list[str]:
     args = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
@@ -86,25 +96,38 @@ def _build_ffmpeg_args(
         header_str = "".join(f"{key}: {value}\r\n" for key, value in headers.items())
         args += ["-headers", header_str]
 
-    args += ["-ss", str(start), "-i", audio_url, "-t", str(duration), "-vn"]
+    args += ["-ss", str(start), "-i", media_url, "-t", str(duration)]
     if fmt == "mp3":
-        args += ["-acodec", "libmp3lame", "-q:a", "2", "-f", "mp3"]
+        args += ["-vn", "-acodec", "libmp3lame", "-q:a", "2", "-f", "mp3"]
+    elif fmt == "flac":
+        args += ["-vn", "-acodec", "flac", "-f", "flac"]
     else:
-        args += ["-acodec", "flac", "-f", "flac"]
+        args += [
+            "-map", "0:v:0",
+            "-map", "0:a:0?",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-b:a", "160k",
+            "-movflags", "frag_keyframe+empty_moov",
+            "-f", "mp4",
+        ]
     args.append("pipe:1")
     return args
 
 
 def iter_clip(
-    audio_url: str,
+    media_url: str,
     start: float,
     duration: float,
-    fmt: AudioFormat,
+    fmt: ClipFormat,
     headers: dict[str, str] | None = None,
 ) -> Iterator[bytes]:
-    """Run ffmpeg and yield encoded audio chunks."""
+    """Run ffmpeg and yield encoded clip chunks."""
     proc = subprocess.Popen(
-        _build_ffmpeg_args(audio_url, start, duration, fmt, headers),
+        _build_ffmpeg_args(media_url, start, duration, fmt, headers),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
