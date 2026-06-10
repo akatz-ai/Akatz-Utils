@@ -6,7 +6,13 @@ from typing import cast
 
 from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
 
-from ytclipper import ClipFormat, extract_media_url, extract_video_id, iter_clip, validate_time_range
+from ytclipper import (
+    ClipFormat,
+    extract_media_sources,
+    extract_video_id,
+    iter_clip,
+    validate_time_range,
+)
 
 bp = Blueprint("ytclipper", __name__)
 
@@ -31,7 +37,7 @@ def ytclipper_clip():
         end = float(data.get("end", 0))
         extract_video_id(url)
         validate_time_range(start, end)
-        media_url, title, http_headers = extract_media_url(url, fmt)
+        media_sources, title = extract_media_sources(url, fmt)
     except ValueError as e:
         return jsonify(error=str(e)), 400
     except Exception as e:
@@ -47,7 +53,7 @@ def ytclipper_clip():
     filename = f"{title}.{fmt}"
 
     return Response(
-        stream_with_context(iter_clip(media_url, start, duration, fmt, http_headers)),
+        stream_with_context(iter_clip(media_sources, start, duration, fmt)),
         mimetype=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
