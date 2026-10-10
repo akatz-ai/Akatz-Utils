@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import re
+import tempfile
 import unicodedata
 from typing import cast
 from urllib.parse import quote
 
-from flask import Blueprint, Response, jsonify, render_template, request, stream_with_context
+from flask import Blueprint, current_app, jsonify, render_template, request, send_file
 
 from ytclipper import (
     ClipFormat,
@@ -53,7 +54,7 @@ def ytclipper_metadata():
 
 @bp.route("/api/ytclipper/clip", methods=["POST"])
 def ytclipper_clip():
-    """Create and stream a clip from a YouTube URL."""
+    """Create a complete clip before sending the download response."""
     data = request.get_json(silent=True) or {}
     url = str(data.get("url", "")).strip()
     fmt = cast(ClipFormat, data.get("format", "mp3"))
@@ -81,10 +82,31 @@ def ytclipper_clip():
     media_type = media_types[fmt]
     filename = f"{title}.{fmt}"
 
-    return Response(
-        stream_with_context(
-            iter_youtube_clip(url, media_sources, start, duration, fmt)
-        ),
-        mimetype=media_type,
-        headers={"Content-Disposition": _content_disposition(filename)},
-    )
+    # Encoding can fail before or after producing output. Finish it first so
+    # failures can still return JSON instead of a 500 or a truncated download.
+    # TemporaryFile keeps larger clips off the Python heap; send_file's file
+    # wrapper closes it when the response finishes (including disconnects).
+    clip = tempfile.TemporaryFile(mode="w+b")
+    try:
+        for chunk in iter_youtube_clip(url, media_sources, start, duration, fmt):
+            clip.write(chunk)
+        size = clip.tell()
+        if not size:
+            raise RuntimeError("FFmpeg produced an empty clip")
+        clip.seek(0)
+        response = send_file(
+            clip, mimetype=media_type, as_attachment=True, download_name=filename,
+        )
+        response.headers["Content-Disposition"] = _content_disposition(filename)
+        response.content_length = size
+        return response
+    except Exception as error:
+        clip.close()
+        current_app.logger.exception("YouTube clip generation failed")
+        if "Failed to resolve hostname" in str(error):
+            message = "Could not resolve YouTube's media server. Check the FFmpeg installation and DNS settings."
+        elif "403 Forbidden" in str(error) or "access denied" in str(error).lower():
+            message = "YouTube refused access to the video stream. Please try again."
+        else:
+            message = "Could not create the clip. Please try again or check the server logs."
+        return jsonify(error=message), 502

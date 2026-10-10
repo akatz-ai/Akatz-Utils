@@ -14,6 +14,15 @@ A collection of GUI utility tools for common tasks, managed as a Python monorepo
 
 - Python 3.9 or higher
 - [uv](https://docs.astral.sh/uv/) package manager
+- `ffmpeg` and `ffprobe` on `PATH`, with H.264 (`libx264`), AAC, MP3, and FLAC support
+
+On Fedora, the system FFmpeg may lack `libx264`. Use a full build that can
+also open HTTPS media URLs. The static FFmpeg bundled with `imageio-ffmpeg`
+can fail DNS resolution with Fedora's systemd resolver even when local-file
+conversions work. A Linux ARM64 `gpl-shared` build from
+[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases) works on
+the Fedora Asahi MacBook. Put its `bin` directory first on `PATH` and set
+`IMAGEIO_FFMPEG_EXE` to its `ffmpeg` executable for MoviePy conversions.
 
 ### Quick Start
 
