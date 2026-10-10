@@ -32,6 +32,49 @@
         optionsSection.style.display = "";
         resultSection.style.display = "none";
         statusMsg.innerHTML = "";
+        generateThumbnail(file);
+    }
+
+    function generateThumbnail(file) {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        video.muted = true;
+        video.preload = "metadata";
+        video.src = url;
+
+        video.addEventListener("loadeddata", () => {
+            // Seek to 0.5s or 10% of duration for a representative frame
+            video.currentTime = Math.min(0.5, video.duration * 0.1);
+        });
+
+        video.addEventListener("seeked", () => {
+            const canvas = $("#videoThumb");
+            const scale = Math.min(1, 600 / video.videoWidth);
+            canvas.width = Math.round(video.videoWidth * scale);
+            canvas.height = Math.round(video.videoHeight * scale);
+            canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            $("#videoRes").textContent = `${video.videoWidth} x ${video.videoHeight}`;
+            const dur = video.duration;
+            if (dur && isFinite(dur)) {
+                const m = Math.floor(dur / 60);
+                const s = Math.floor(dur % 60);
+                $("#videoDur").textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+            } else {
+                $("#videoDur").textContent = "Unknown";
+            }
+
+            $("#thumbnailSection").style.display = "";
+            URL.revokeObjectURL(url);
+            video.remove();
+        });
+
+        video.addEventListener("error", () => {
+            URL.revokeObjectURL(url);
+            video.remove();
+            // Silently skip thumbnail if video can't be decoded client-side
+            $("#thumbnailSection").style.display = "none";
+        });
     }
 
     // Dimension toggle

@@ -7,6 +7,9 @@ const controlsSection = $("ytControlsSection");
 const statusEl = $("ytStatus");
 const formatSelect = $("ytFormatSelect");
 const downloadBtn = $("ytDownloadBtn");
+const previewNotice = $("ytPreviewNotice");
+const setStartBtn = $("ytSetStartBtn");
+const setEndBtn = $("ytSetEndBtn");
 
 const startInput = $("ytStartInput");
 const endInput = $("ytEndInput");
@@ -33,6 +36,7 @@ let endTime = 0;
 let viewStart = 0;
 let viewEnd = 0;
 let controlsInitialized = false;
+let loadSequence = 0;
 
 let dragMode = null;
 let dragStartX = 0;
@@ -57,7 +61,7 @@ function extractVideoId(url) {
 
 function loadYouTubeAPI() {
     if (apiReady) return apiReady;
-    apiReady = new Promise((resolve) => {
+    apiReady = new Promise((resolve, reject) => {
         if (apiLoaded && window.YT?.Player) {
             resolve();
             return;
@@ -68,12 +72,24 @@ function loadYouTubeAPI() {
         };
         const script = document.createElement("script");
         script.src = "https://www.youtube.com/iframe_api";
+        script.onerror = () => {
+            apiReady = null;
+            reject(new Error("YouTube preview could not load"));
+        };
         document.head.appendChild(script);
     });
     return apiReady;
 }
 
-function loadVideo(videoId) {
+function showPreviewUnavailable() {
+    playerSection.hidden = true;
+    setStartBtn.disabled = true;
+    setEndBtn.disabled = true;
+    previewNotice.textContent = "YouTube preview unavailable. Choose MP4 to download the full video, or set start/end times manually.";
+    previewNotice.hidden = false;
+}
+
+function loadVideo(videoId, sequence) {
     if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
@@ -82,6 +98,11 @@ function loadVideo(videoId) {
         player.destroy();
         player = null;
     }
+
+    let ready = false;
+    const timeout = setTimeout(() => {
+        if (!ready && sequence === loadSequence) showPreviewUnavailable();
+    }, 10000);
 
     player = new YT.Player("ytPlayerContainer", {
         videoId,
@@ -92,15 +113,25 @@ function loadVideo(videoId) {
         },
         events: {
             onReady: () => {
-                initControls(player.getDuration());
-                controlsSection.hidden = false;
-                hideStatus();
-                loadBtn.disabled = false;
+                if (sequence !== loadSequence) return;
+                ready = true;
+                clearTimeout(timeout);
+                setStartBtn.disabled = false;
+                setEndBtn.disabled = false;
+                previewNotice.hidden = true;
                 pollTimer = setInterval(() => {
                     if (player && typeof player.getCurrentTime === "function") {
                         updatePlayhead(player.getCurrentTime());
                     }
                 }, 250);
+            },
+            onError: () => {
+                if (sequence !== loadSequence) return;
+                ready = true;
+                clearTimeout(timeout);
+                if (pollTimer) clearInterval(pollTimer);
+                pollTimer = null;
+                showPreviewUnavailable();
             },
         },
     });
@@ -427,7 +458,16 @@ async function downloadClip() {
 
     const blob = await response.blob();
     const disposition = response.headers.get("Content-Disposition") ?? "";
-    const filename = disposition.match(/filename="(.+?)"/)?.[1] ?? `clip.${formatSelect.value}`;
+    const utf8Filename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+    const legacyFilename = disposition.match(/filename="([^"]+)"/)?.[1];
+    let filename = legacyFilename ?? `clip.${formatSelect.value}`;
+    if (utf8Filename) {
+        try {
+            filename = decodeURIComponent(utf8Filename);
+        } catch {
+            // Keep the ASCII fallback if the server sends an invalid encoded name.
+        }
+    }
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -438,6 +478,7 @@ async function downloadClip() {
 }
 
 loadBtn.addEventListener("click", async () => {
+    const sequence = ++loadSequence;
     hideStatus();
     const url = urlInput.value.trim();
     if (!url) return;
@@ -448,17 +489,42 @@ loadBtn.addEventListener("click", async () => {
         return;
     }
 
-    currentUrl = url;
     loadBtn.disabled = true;
     showStatus("Loading video...", "info");
+    controlsSection.hidden = true;
+    playerSection.hidden = true;
 
     try {
+        const response = await fetch("/api/ytclipper/metadata", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+        });
+        const metadata = await response.json();
+        if (!response.ok) throw new Error(metadata.error ?? "Could not load video details");
+        if (sequence !== loadSequence) return;
+
+        currentUrl = url;
+        initControls(metadata.duration);
+        controlsSection.hidden = false;
+        setStartBtn.disabled = true;
+        setEndBtn.disabled = true;
+        previewNotice.textContent = "Loading YouTube preview. You can still download the video.";
+        previewNotice.hidden = false;
+        hideStatus();
+        loadBtn.disabled = false;
+
         await loadYouTubeAPI();
+        if (sequence !== loadSequence) return;
         playerSection.hidden = false;
-        controlsSection.hidden = true;
-        loadVideo(videoId);
+        loadVideo(videoId, sequence);
     } catch (error) {
-        showStatus(`Failed to load video: ${error}`, "error");
+        if (sequence !== loadSequence) return;
+        if (!controlsSection.hidden) {
+            showPreviewUnavailable();
+            return;
+        }
+        showStatus(error instanceof Error ? error.message : String(error), "error");
         loadBtn.disabled = false;
     }
 });

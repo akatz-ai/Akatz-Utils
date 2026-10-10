@@ -4,10 +4,45 @@ from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 import tempfile
 from typing import Callable, Optional
 
 from moviepy import VideoFileClip
+
+
+def _remux_if_needed(input_path: str) -> str | None:
+    """Remux video to fix missing duration metadata (e.g. Chrome WebM recordings).
+
+    Returns path to a remuxed temp file, or None if remuxing isn't needed.
+    """
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", input_path],
+            capture_output=True, text=True, timeout=30,
+        )
+        duration_str = result.stdout.strip()
+        if duration_str and duration_str != "N/A":
+            return None
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+    ext = os.path.splitext(input_path)[1] or ".mkv"
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    tmp.close()
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", input_path, "-c", "copy", tmp.name],
+            capture_output=True, timeout=120,
+        )
+        return tmp.name
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        return None
 
 
 def convert_video(
@@ -40,10 +75,13 @@ def convert_video(
             progress_callback(msg)
 
     status("Loading video...")
-    video = VideoFileClip(input_path)
+    remuxed_path = _remux_if_needed(input_path)
+    load_path = remuxed_path or input_path
+    video = VideoFileClip(load_path)
 
     try:
-        clip_duration = min(duration, video.duration)
+        vid_duration = video.duration or duration
+        clip_duration = min(duration, vid_duration)
         video = video.subclipped(0, clip_duration)
 
         # Handle dimensions
@@ -93,3 +131,8 @@ def convert_video(
 
     finally:
         video.close()
+        if remuxed_path:
+            try:
+                os.unlink(remuxed_path)
+            except OSError:
+                pass

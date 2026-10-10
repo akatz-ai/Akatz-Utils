@@ -21,8 +21,21 @@
     <div>
         <div class="panel">
             <div class="panel-title">Preview</div>
-            <div class="preview-area" id="previewArea">
-                <span class="preview-placeholder">Loading preview...</span>
+            <div class="crop-container" id="cropContainer">
+                <div class="preview-area" id="previewArea">
+                    <span class="preview-placeholder">Loading preview...</span>
+                </div>
+                <div class="crop-box" id="cropBox" style="display:none">
+                    <div class="crop-handle crop-handle-nw" data-dir="nw"></div>
+                    <div class="crop-handle crop-handle-n" data-dir="n"></div>
+                    <div class="crop-handle crop-handle-ne" data-dir="ne"></div>
+                    <div class="crop-handle crop-handle-w" data-dir="w"></div>
+                    <div class="crop-handle crop-handle-e" data-dir="e"></div>
+                    <div class="crop-handle crop-handle-sw" data-dir="sw"></div>
+                    <div class="crop-handle crop-handle-s" data-dir="s"></div>
+                    <div class="crop-handle crop-handle-se" data-dir="se"></div>
+                    <div class="crop-size-label" id="cropSizeLabel"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -47,6 +60,14 @@
                     <label><input type="radio" name="mode" value="stretch" checked> Stretch</label>
                     <label><input type="radio" name="mode" value="crop"> Crop</label>
                 </div>
+            </div>
+            <hr class="divider">
+            <div class="btn-row" style="margin-top:0;gap:0.5rem">
+                <button class="btn btn-secondary btn-full" id="cropToggle">Crop Tool</button>
+                <button class="btn btn-secondary" id="cropReset" style="display:none">Reset</button>
+            </div>
+            <div class="crop-info" id="cropInfo" style="display:none">
+                <span class="crop-info-text" id="cropInfoText"></span>
             </div>
         </div>
 

@@ -102,6 +102,8 @@ def _media_inputs_from_info(info: dict, fmt: ClipFormat) -> list[MediaInput]:
 def extract_media_sources(
     youtube_url: str,
     fmt: ClipFormat,
+    *,
+    player_client: str | None = None,
 ) -> tuple[list[MediaInput], str]:
     """Extract source stream URLs and a sanitized title."""
     yt_format = "bestaudio/best"
@@ -117,10 +119,34 @@ def extract_media_sources(
         "quiet": True,
         "no_warnings": True,
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(youtube_url, download=False)
-        if info is None:
-            raise ValueError("Could not load YouTube metadata")
+    if player_client is not None:
+        opts["extractor_args"] = {
+            "youtube": {"player_client": [player_client]},
+        }
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+    except yt_dlp.DownloadError as primary_error:
+        # Some videos currently expose only a direct Android-client format.
+        # Keep the normal client selection first because it generally provides
+        # better quality, then retry this specific availability failure with
+        # the Android client (which avoids the Android VR proof-token path).
+        if (
+            player_client is not None
+            or "This video is not available" not in str(primary_error)
+        ):
+            raise
+
+        fallback_opts = {
+            **opts,
+            "extractor_args": {"youtube": {"player_client": ["android"]}},
+        }
+        with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+
+    if info is None:
+        raise ValueError("Could not load YouTube metadata")
 
     if info.get("is_live"):
         raise ValueError("Live streams are not supported")
@@ -129,6 +155,32 @@ def extract_media_sources(
         _media_inputs_from_info(info, fmt),
         sanitize_title(info.get("title", "clip")),
     )
+
+
+def extract_video_metadata(youtube_url: str) -> dict[str, str | float]:
+    """Return the title and duration without relying on YouTube's embed player."""
+    opts = {
+        "format": "bestvideo[vcodec!=none]+bestaudio[acodec!=none]/best[vcodec!=none][acodec!=none]/best",
+        "noplaylist": True,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+    except yt_dlp.DownloadError as primary_error:
+        if "This video is not available" not in str(primary_error):
+            raise
+        opts["extractor_args"] = {"youtube": {"player_client": ["android"]}}
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=False)
+
+    if not info or info.get("is_live"):
+        raise ValueError("Could not load video metadata")
+    duration = info.get("duration")
+    if not isinstance(duration, (int, float)) or duration <= 0:
+        raise ValueError("Video duration is unavailable")
+    return {"title": info.get("title") or "Video", "duration": duration}
 
 
 def extract_media_url(
@@ -241,3 +293,41 @@ def iter_clip(
         if proc.poll() is None:
             proc.kill()
             proc.wait()
+
+
+def iter_youtube_clip(
+    youtube_url: str,
+    media: list[MediaInput],
+    start: float,
+    duration: float,
+    fmt: ClipFormat,
+) -> Iterator[bytes]:
+    """Encode a clip, recovering from unopened Google media URLs when possible."""
+    current_media = media
+    emitted_output = False
+
+    # A fresh default extraction usually preserves the requested quality. The
+    # Android client is the final fallback because it is broadly accessible but
+    # can expose only a lower-resolution combined stream for some videos.
+    retry_clients: tuple[str | None, ...] = (None, "android")
+
+    for attempt in range(len(retry_clients) + 1):
+        if attempt:
+            current_media, _ = extract_media_sources(
+                youtube_url,
+                fmt,
+                player_client=retry_clients[attempt - 1],
+            )
+
+        try:
+            for chunk in iter_clip(current_media, start, duration, fmt):
+                emitted_output = True
+                yield chunk
+            return
+        except RuntimeError as error:
+            access_denied = (
+                "403 Forbidden" in str(error)
+                or "access denied" in str(error).lower()
+            )
+            if emitted_output or not access_denied or attempt == len(retry_clients):
+                raise

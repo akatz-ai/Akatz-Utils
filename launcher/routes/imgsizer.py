@@ -7,9 +7,23 @@ from io import BytesIO
 
 from flask import Blueprint, request, jsonify, render_template, send_file
 
-from imgsizer import load_image, resize_image, estimate_size, auto_adjust, export_image
+from imgsizer import load_image, crop_image, resize_image, estimate_size, auto_adjust, export_image
 
 bp = Blueprint("imgsizer", __name__)
+
+
+def _apply_crop(img, data):
+    """Apply optional crop from request data. Returns (possibly cropped) image."""
+    crop_x = data.get("crop_x")
+    if crop_x is not None:
+        return crop_image(
+            img,
+            int(crop_x),
+            int(data.get("crop_y", 0)),
+            int(data.get("crop_w", img.width)),
+            int(data.get("crop_h", img.height)),
+        )
+    return img
 
 # In-memory store: file_id -> {"image": PIL.Image, "filename": str, "original_size": int}
 _uploads: dict[str, dict] = {}
@@ -57,7 +71,7 @@ def imgsizer_preview():
     if not file_id or file_id not in _uploads:
         return jsonify(error="Invalid file_id"), 400
 
-    img = _uploads[file_id]["image"]
+    img = _apply_crop(_uploads[file_id]["image"], data)
     width = int(data.get("width", img.width))
     height = int(data.get("height", img.height))
     quality = int(data.get("quality", 85))
@@ -83,7 +97,7 @@ def imgsizer_export():
     if not file_id or file_id not in _uploads:
         return jsonify(error="Invalid file_id"), 400
 
-    img = _uploads[file_id]["image"]
+    img = _apply_crop(_uploads[file_id]["image"], data)
     filename = _uploads[file_id]["filename"]
     width = int(data.get("width", img.width))
     height = int(data.get("height", img.height))
@@ -109,7 +123,7 @@ def imgsizer_auto_adjust():
     if not file_id or file_id not in _uploads:
         return jsonify(error="Invalid file_id"), 400
 
-    img = _uploads[file_id]["image"]
+    img = _apply_crop(_uploads[file_id]["image"], data)
     width = int(data.get("width", img.width))
     height = int(data.get("height", img.height))
     mode = data.get("mode", "stretch")

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Frame Clipper - Akatz Utils{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/frameclipper.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Frame Clipper</h1>
+    <p>Pick a moment from a video and save its frame at the source resolution.</p>
+</div>
+
+<div class="frame-shell">
+    <div class="panel frame-source-panel">
+        <div class="frame-source-row">
+            <label for="frameYoutubeUrl">YouTube link</label>
+            <div class="frame-source-input">
+                <input id="frameYoutubeUrl" type="url" placeholder="Paste a YouTube URL…" autocomplete="off">
+                <button class="btn btn-primary" id="frameLoadUrl">Load link</button>
+            </div>
+        </div>
+        <div class="frame-source-divider">or</div>
+        <div class="frame-source-row">
+            <label for="frameFile">Upload an MP4</label>
+            <input id="frameFile" type="file" accept=".mp4,video/mp4">
+        </div>
+    </div>
+
+    <div id="frameStatus" class="frame-status" role="status" hidden></div>
+
+    <div id="frameWorkspace" class="panel frame-workspace" hidden>
+        <div class="frame-heading">
+            <div>
+                <h2 id="frameTitle"></h2>
+                <p id="frameDetails"></p>
+            </div>
+            <span id="framePosition"></span>
+        </div>
+
+        <div class="frame-image-wrap">
+            <img id="framePreview" alt="Selected video frame" hidden>
+            <span id="framePreviewPlaceholder">Loading frame…</span>
+        </div>
+
+        <label for="frameSeek" class="frame-seek-label">Moment in video</label>
+        <input id="frameSeek" type="range" min="0" step="any" value="0">
+        <div class="frame-time-labels"><span>0:00</span><span id="frameDuration"></span></div>
+
+        <div class="frame-controls">
+            <button class="btn btn-secondary" id="framePrevious" title="Previous frame">← Previous frame</button>
+            <label for="frameTime">Time</label>
+            <input id="frameTime" type="text" inputmode="decimal" aria-label="Frame time" placeholder="0:00.000">
+            <button class="btn btn-secondary" id="frameNext" title="Next frame">Next frame →</button>
+        </div>
+
+        <div class="frame-export">
+            <label for="frameFormat">Save as</label>
+            <select id="frameFormat"><option value="png">PNG</option><option value="jpg">JPG</option></select>
+            <button class="btn btn-primary" id="frameDownload">Download frame</button>
+        </div>
+        <p class="frame-hint">The downloaded image keeps the video frame's native dimensions. Frame steps use the reported frame rate.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/frameclipper.js') }}"></script>
+{% endblock %}

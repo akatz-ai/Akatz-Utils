@@ -27,8 +27,14 @@ TOOLS = [
     {
         "id": "ytclipper",
         "name": "YouTube Clipper",
-        "description": "Trim YouTube videos and export the selected audio as MP3 or FLAC",
+        "description": "Trim YouTube videos and export MP3, FLAC, or MP4 clips",
         "icon": "youtube",
+    },
+    {
+        "id": "frameclipper",
+        "name": "Frame Clipper",
+        "description": "Capture a full-resolution JPG or PNG from a video frame",
+        "icon": "frame",
     },
 ]
 
@@ -50,10 +56,12 @@ def create_app() -> Flask:
     from .routes.pdf2md import bp as pdf2md_bp
     from .routes.vid2gif import bp as vid2gif_bp
     from .routes.ytclipper import bp as ytclipper_bp
+    from .routes.frameclipper import bp as frameclipper_bp
 
     app.register_blueprint(imgsizer_bp)
     app.register_blueprint(pdf2md_bp)
     app.register_blueprint(vid2gif_bp)
     app.register_blueprint(ytclipper_bp)
+    app.register_blueprint(frameclipper_bp)
 
     return app

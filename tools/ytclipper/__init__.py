@@ -6,7 +6,9 @@ from .ytclipper import (
     extract_media_sources,
     extract_media_url,
     extract_video_id,
+    extract_video_metadata,
     iter_clip,
+    iter_youtube_clip,
     sanitize_title,
     validate_time_range,
 )
@@ -18,7 +20,9 @@ __all__ = [
     "extract_media_sources",
     "extract_media_url",
     "extract_video_id",
+    "extract_video_metadata",
     "iter_clip",
+    "iter_youtube_clip",
     "sanitize_title",
     "validate_time_range",
 ]

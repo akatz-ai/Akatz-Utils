@@ -30,6 +30,32 @@ def load_image(source) -> Image.Image:
     return img
 
 
+def crop_image(
+    img: Image.Image,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+) -> Image.Image:
+    """Crop an image to a region, clamped to image bounds.
+
+    Args:
+        img: Source PIL Image.
+        x: Left edge in pixels.
+        y: Top edge in pixels.
+        w: Width of crop region in pixels.
+        h: Height of crop region in pixels.
+
+    Returns:
+        Cropped PIL Image.
+    """
+    x = max(0, min(x, img.width - 1))
+    y = max(0, min(y, img.height - 1))
+    w = max(1, min(w, img.width - x))
+    h = max(1, min(h, img.height - y))
+    return img.crop((x, y, x + w, y + h))
+
+
 def resize_image(
     img: Image.Image,
     width: int,
