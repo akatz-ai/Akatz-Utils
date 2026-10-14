@@ -9,10 +9,12 @@ import subprocess
 import tempfile
 import threading
 from collections.abc import Iterator
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Literal
 
 import yt_dlp
+from .chunked import ChunkedInputs
 
 ClipFormat = Literal["mp3", "flac", "mp4"]
 MediaKind = Literal["audio", "video", "combined", "unknown"]
@@ -370,9 +372,11 @@ def iter_youtube_clip(
             )
 
         try:
-            for chunk in iter_clip(current_media, start, duration, fmt, copy_video=copy_video, cancel_event=cancel_event):
-                emitted_output = True
-                yield chunk
+            inputs = ChunkedInputs(current_media, cancel_event) if copy_video and fmt == "mp4" else nullcontext(current_media)
+            with inputs as download_media:
+                for chunk in iter_clip(download_media, start, duration, fmt, copy_video=copy_video, cancel_event=cancel_event):
+                    emitted_output = True
+                    yield chunk
             return
         except RuntimeError as error:
             access_denied = (

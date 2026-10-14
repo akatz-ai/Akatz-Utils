@@ -131,6 +131,7 @@ def create_job():
         job = dict(id=uuid.uuid4().hex, state="processing", destination=destination,
                    url=url, start=start, end=end, format=fmt, copy_video=copy_video,
                    folder=str(folder) if folder is not None else "", requested_filename=name,
+                   phase="Loading YouTube streams",
                    created=time.time(), bytes=0)
         write_job(root, job)
         app = current_app._get_current_object()
@@ -163,6 +164,8 @@ def create_job():
                     else:
                         target = target_dir / filename
                     partial = target_dir / f".akatz-{job['id']}.partial"
+                    job['phase'] = "Downloading and combining streams" if copy_video else "Encoding clip"
+                    write_job(root, job)
                     last_update = time.monotonic()
                     with partial.open("xb") as output:
                         for chunk in iter_youtube_clip(url, sources, start, end - start, fmt, copy_video=copy_video, cancel_event=cancel_event):

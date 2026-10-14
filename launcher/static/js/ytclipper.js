@@ -509,7 +509,7 @@ async function followJob(id) {
                 cancelBtn.disabled = true;
                 showStatus("Cancelling clip…", "info");
             } else {
-                showStatus(`Processing on the server… ${(job.bytes / 1024 / 1024).toFixed(1)} MB written. You can return to this page while it finishes.`, "info");
+                showStatus(`${job.phase ?? "Processing on the server"}… ${(job.bytes / 1024 / 1024).toFixed(1)} MB written. You can return to this page while it finishes.`, "info");
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
         }

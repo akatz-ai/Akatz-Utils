@@ -30,6 +30,17 @@ without video re-encoding. This retains its source codec and resolution; cuts
 start near keyframes and may not match the exact requested timestamps. Leave
 it off for precise H.264 encoding. Audio is converted to AAC in both modes.
 
+Fast mode fetches HTTP media in 2 MiB ranges, with two chunks of lookahead
+and at most four upstream requests at a time. FFmpeg reads these through a
+temporary loopback endpoint that preserves seeking, so short selections do
+not require downloading an entire long video. Buffers stay bounded in memory;
+source files are not cached on the hub's local disk. Unsupported range or
+playlist sources fall back to the existing streaming path. The approach avoids
+the [large-request throttling described by yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/FAQ).
+Cancellation stops FFmpeg and the range fetchers; blocked upstream requests
+have short timeouts. The UI shows whether the job is loading sources,
+downloading and combining streams, or encoding.
+
 Jobs run in the background. Returning to the page reconnects to the last job.
 Use **Cancel Clip** to stop an active encode and discard its partial output;
 then change options and start again. If the
