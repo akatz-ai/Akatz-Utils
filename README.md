@@ -59,7 +59,7 @@ df -h /mnt/hub-ssd
 mkdir -p /mnt/shared/Projects/Akatz-Utils/{scratch,browser-jobs,clips,exports}
 mkdir -p /mnt/hub-ssd/akatz-utils
 ln -s /mnt/hub-ssd/akatz-utils/.venv .venv
-UV_CACHE_DIR=/mnt/shared/Projects/Akatz-Utils/install-cache uv sync --all-packages --no-dev --python /usr/bin/python3
+UV_PROJECT_ENVIRONMENT=/mnt/hub-ssd/akatz-utils/.venv UV_CACHE_DIR=/mnt/shared/Projects/Akatz-Utils/install-cache uv sync --all-packages --no-dev --python /usr/bin/python3
 mkdir -p ~/.config/systemd/user
 cp deploy/akatz-utils-hub.service ~/.config/systemd/user/
 systemctl --user daemon-reload

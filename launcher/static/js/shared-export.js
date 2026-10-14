@@ -8,7 +8,7 @@ window.akatzExport = {
         return folder !== null ? {"X-Akatz-Save-Folder": folder || "Projects/Akatz-Utils/exports"} : {};
     },
     async saved(response) {
-        if (this.folder() === null) return false;
+        if (!response.headers.get("Content-Type")?.includes("application/json")) return false;
         const result = await response.json();
         const status = document.getElementById("sharedExportStatus");
         status.textContent = response.ok ? `Saved to ${result.path}` : (result.error ?? "Save failed");
