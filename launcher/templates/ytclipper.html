@@ -65,10 +65,23 @@
                 <option value="mp4">MP4</option>
             </select>
             <button class="btn btn-primary" id="ytDownloadBtn">Download Clip</button>
+            <button class="btn btn-secondary" id="ytSaveBtn" hidden>Save to Shared Drive</button>
+        </div>
+        <div id="ytSaveOptions" class="yt-save-options" hidden>
+            <label for="ytSaveFolder">Shared-drive folder</label>
+            <div class="yt-url-bar">
+                <input type="text" id="ytSaveFolder" value="Projects/Akatz-Utils/clips" placeholder="Projects/Akatz-Utils/clips">
+                <button class="btn btn-secondary" id="ytBrowseBtn">Browse folders</button>
+            </div>
+            <div id="ytFolderBrowser" hidden></div>
+            <label for="ytSaveFilename">Filename (optional)</label>
+            <input type="text" id="ytSaveFilename" placeholder="Use video title">
+            <p class="yt-preview-notice">Saves directly on the shared drive. New folders are created when saving; existing files are kept.</p>
         </div>
     </div>
 
     <div id="ytStatus" class="yt-status" hidden></div>
+    <a id="ytResultDownload" class="btn btn-secondary" hidden>Download completed clip</a>
 </div>
 {% endblock %}
 

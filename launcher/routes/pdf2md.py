@@ -90,7 +90,7 @@ def pdf2md_progress(task_id):
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@bp.route("/api/pdf2md/download/<task_id>")
+@bp.route("/api/pdf2md/download/<task_id>", methods=["GET", "POST"])
 def pdf2md_download(task_id):
     """Download the converted markdown file."""
     if task_id not in _tasks:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import json
 import subprocess
 import tempfile
@@ -62,6 +63,9 @@ def _youtube_info(url: str, client: str | None = None) -> tuple[dict, dict]:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        "js_runtimes": {"node": {}, "deno": {}},
+        "cachedir": os.path.join(tempfile.gettempdir(), "akatz-ytdlp-cache"),
+        "socket_timeout": 30,
     }
     if client:
         opts["extractor_args"] = {"youtube": {"player_client": [client]}}

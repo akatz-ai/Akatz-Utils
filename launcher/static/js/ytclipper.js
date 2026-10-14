@@ -433,49 +433,115 @@ function parseTime(value) {
     return null;
 }
 
-async function downloadClip() {
-    const response = await fetch("/api/ytclipper/clip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            url: currentUrl,
-            start: startTime,
-            end: endTime,
-            format: formatSelect.value,
-        }),
-    });
+const saveBtn = $("ytSaveBtn");
+const saveFolder = $("ytSaveFolder");
+const resultDownload = $("ytResultDownload");
+const jobKey = "akatz-utils-clip-job";
+let processing = false;
 
-    if (!response.ok) {
-        let message = `Server error (${response.status})`;
-        try {
-            const body = await response.json();
-            if (body.error) message = body.error;
-        } catch {
-            // Ignore parse errors and keep the generic message.
-        }
-        throw new Error(message);
-    }
-
-    const blob = await response.blob();
-    const disposition = response.headers.get("Content-Disposition") ?? "";
-    const utf8Filename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-    const legacyFilename = disposition.match(/filename="([^"]+)"/)?.[1];
-    let filename = legacyFilename ?? `clip.${formatSelect.value}`;
-    if (utf8Filename) {
-        try {
-            filename = decodeURIComponent(utf8Filename);
-        } catch {
-            // Keep the ASCII fallback if the server sends an invalid encoded name.
-        }
-    }
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(link.href);
+async function jsonRequest(url, options = {}) {
+    const response = await fetch(url, options);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error ?? `Server error (${response.status})`);
+    return body;
 }
+
+function setProcessing(value) {
+    processing = value;
+    downloadBtn.disabled = value;
+    saveBtn.disabled = value;
+    loadBtn.disabled = value;
+}
+
+async function followJob(id) {
+    setProcessing(true);
+    resultDownload.hidden = true;
+    try {
+        while (true) {
+            const job = await jsonRequest(`/api/ytclipper/jobs/${id}`);
+            if (job.state === "error") { localStorage.removeItem(jobKey); throw new Error(job.error); }
+            if (job.state === "complete") {
+                localStorage.removeItem(jobKey);
+                resultDownload.href = job.download_url;
+                resultDownload.hidden = false;
+                if (job.destination === "shared") {
+                    showStatus(`Saved to ${job.path} (${(job.bytes / 1024 / 1024).toFixed(1)} MB)`, "info");
+                } else {
+                    showStatus("Clip ready. Your browser download is starting; use the link below to download again.", "info");
+                    resultDownload.click();
+                }
+                break;
+            }
+            showStatus(`Processing on the server… ${(job.bytes / 1024 / 1024).toFixed(1)} MB written. You can return to this page while it finishes.`, "info");
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+    } catch (error) {
+        showStatus(`${error.message} Reload this page to reconnect to a running clip.`, "error");
+    } finally {
+        setProcessing(false);
+    }
+}
+
+async function createClip(destination) {
+    if (processing) return;
+    setProcessing(true);
+    resultDownload.hidden = true;
+    showStatus("Starting clip on the server…", "info");
+    try {
+        const job = await jsonRequest("/api/ytclipper/jobs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({url: currentUrl, start: startTime, end: endTime,
+                format: formatSelect.value, destination,
+                folder: saveFolder.value.trim(), filename: $("ytSaveFilename").value.trim()}),
+        });
+        localStorage.setItem(jobKey, job.id);
+        localStorage.setItem("akatz-utils-save-folder", saveFolder.value);
+        await followJob(job.id);
+    } catch (error) {
+        showStatus(error.message, "error");
+        setProcessing(false);
+    }
+}
+
+async function browseFolders(path) {
+    try {
+        const data = await jsonRequest(`/api/ytclipper/folders?path=${encodeURIComponent(path)}`);
+        saveFolder.value = data.path;
+        const browser = $("ytFolderBrowser");
+        browser.replaceChildren();
+        browser.hidden = false;
+        const entries = data.parent ? [{name: "↑ Parent folder", path: data.parent}, ...data.folders] : data.folders;
+        for (const folder of entries) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-secondary";
+            button.textContent = folder.name;
+            button.addEventListener("click", () => browseFolders(folder.path));
+            browser.appendChild(button);
+        }
+        if (!entries.length) browser.textContent = "No subfolders. You can use this folder or type a new folder path above.";
+    } catch (error) {
+        showStatus(error.message, "error");
+    }
+}
+
+$("ytBrowseBtn").addEventListener("click", () => browseFolders(""));
+saveBtn.addEventListener("click", () => createClip("shared"));
+downloadBtn.addEventListener("click", () => createClip("browser"));
+
+(async () => {
+    try {
+        const storage = await jsonRequest("/api/ytclipper/storage");
+        saveBtn.hidden = !storage.shared_enabled;
+        $("ytSaveOptions").hidden = !storage.shared_enabled;
+        saveFolder.value = localStorage.getItem("akatz-utils-save-folder") ?? storage.default_folder;
+        const job = localStorage.getItem(jobKey);
+        if (job) await followJob(job);
+    } catch (error) {
+        showStatus(error.message, "error");
+    }
+})();
 
 loadBtn.addEventListener("click", async () => {
     const sequence = ++loadSequence;
@@ -531,19 +597,4 @@ loadBtn.addEventListener("click", async () => {
 
 urlInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") loadBtn.click();
-});
-
-downloadBtn.addEventListener("click", async () => {
-    hideStatus();
-    downloadBtn.disabled = true;
-    showStatus("Preparing clip...", "info");
-
-    try {
-        await downloadClip();
-        hideStatus();
-    } catch (error) {
-        showStatus(error instanceof Error ? error.message : String(error), "error");
-    } finally {
-        downloadBtn.disabled = false;
-    }
 });

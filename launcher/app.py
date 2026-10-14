@@ -43,6 +43,8 @@ def create_app() -> Flask:
     """Create and configure the Flask application."""
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500 MB upload limit
+    from .storage import configure_storage
+    configure_storage(app)
 
     # Register hub route
     from flask import render_template
@@ -63,5 +65,9 @@ def create_app() -> Flask:
     app.register_blueprint(vid2gif_bp)
     app.register_blueprint(ytclipper_bp)
     app.register_blueprint(frameclipper_bp)
+
+    from .routes.clipjobs import bp as clipjobs_bp, recover_jobs
+    app.register_blueprint(clipjobs_bp)
+    recover_jobs(app)
 
     return app

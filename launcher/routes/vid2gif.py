@@ -112,7 +112,7 @@ def vid2gif_progress(task_id):
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@bp.route("/api/vid2gif/download/<task_id>")
+@bp.route("/api/vid2gif/download/<task_id>", methods=["GET", "POST"])
 def vid2gif_download(task_id):
     """Download the converted GIF."""
     if task_id not in _tasks:

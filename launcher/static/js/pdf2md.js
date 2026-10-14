@@ -120,7 +120,7 @@
     // Download
     $("#downloadBtn").addEventListener("click", () => {
         if (!taskId) return;
-        window.location.href = `/api/pdf2md/download/${taskId}`;
+        window.akatzExport.download(`/api/pdf2md/download/${taskId}`);
     });
 
     function showError(msg) {

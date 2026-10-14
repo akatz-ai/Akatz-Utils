@@ -80,7 +80,7 @@ function imageRequest(download = false) {
 async function requestFrame(payload) {
     const response = await fetch("/api/frameclipper/frame", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(payload.download ? window.akatzExport.headers() : {}) },
         body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -210,6 +210,7 @@ downloadButton.addEventListener("click", async () => {
     setStatus("Preparing full-resolution image…");
     try {
         const response = await requestFrame(imageRequest(true));
+        if (await window.akatzExport.saved(response)) { setStatus(""); return; }
         const blob = await response.blob();
         const header = response.headers.get("content-disposition") || "";
         const encoded = header.match(/filename\*=UTF-8''([^;]+)/i)?.[1];

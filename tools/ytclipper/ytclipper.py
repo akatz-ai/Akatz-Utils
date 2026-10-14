@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import math
+import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
@@ -14,7 +17,7 @@ ClipFormat = Literal["mp3", "flac", "mp4"]
 MediaKind = Literal["audio", "video", "combined", "unknown"]
 
 CHUNK_SIZE = 8192
-MAX_CLIP_DURATION = 600
+MAX_CLIP_DURATION = 21600
 MIN_CLIP_DURATION = 0.5
 YOUTUBE_RE = re.compile(
     r"(?:youtube\.com/(?:watch\?.*v=|shorts/)|youtu\.be/)([a-zA-Z0-9_-]{11})"
@@ -40,6 +43,8 @@ def extract_video_id(url: str) -> str:
 
 def validate_time_range(start: float, end: float) -> None:
     """Validate a requested clip range."""
+    if not math.isfinite(start) or not math.isfinite(end):
+        raise ValueError("Enter finite start and end times")
     if start < 0:
         raise ValueError("Start time must be non-negative")
     if end <= start:
@@ -49,7 +54,7 @@ def validate_time_range(start: float, end: float) -> None:
     if duration < MIN_CLIP_DURATION:
         raise ValueError(f"Clip must be at least {MIN_CLIP_DURATION}s")
     if duration > MAX_CLIP_DURATION:
-        raise ValueError("Clip must be at most 600s (10 minutes)")
+        raise ValueError("Clip must be at most 6 hours")
 
 
 def sanitize_title(title: str) -> str:
@@ -118,6 +123,9 @@ def extract_media_sources(
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        "js_runtimes": {"node": {}, "deno": {}},
+        "cachedir": os.path.join(tempfile.gettempdir(), "akatz-ytdlp-cache"),
+        "socket_timeout": 30,
     }
     if player_client is not None:
         opts["extractor_args"] = {
@@ -164,6 +172,9 @@ def extract_video_metadata(youtube_url: str) -> dict[str, str | float]:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        "js_runtimes": {"node": {}, "deno": {}},
+        "cachedir": os.path.join(tempfile.gettempdir(), "akatz-ytdlp-cache"),
+        "socket_timeout": 30,
     }
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -225,11 +236,12 @@ def _build_ffmpeg_args(
     headers: dict[str, str] | None = None,
 ) -> list[str]:
     media_inputs = _coerce_media_inputs(media, headers)
-    args = ["ffmpeg", "-hide_banner", "-loglevel", "error"]
+    args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin"]
 
     for media_input in media_inputs:
         args += _headers_args(media_input.headers)
-        args += ["-ss", str(start), "-i", media_input.url]
+        args += ["-rw_timeout", "30000000", "-threads", os.environ.get("AKATZ_FFMPEG_THREADS", "0"),
+                 "-ss", str(start), "-i", media_input.url]
 
     args += ["-t", str(duration)]
     if fmt == "mp3":
@@ -250,7 +262,7 @@ def _build_ffmpeg_args(
 
         args += [
             "-c:v", "libx264",
-            "-preset", "medium",
+            "-preset", os.environ.get("AKATZ_FFMPEG_PRESET", "medium"),
             "-crf", "18",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
@@ -258,7 +270,7 @@ def _build_ffmpeg_args(
             "-movflags", "frag_keyframe+empty_moov",
             "-f", "mp4",
         ]
-    args.append("pipe:1")
+    args += ["-threads", os.environ.get("AKATZ_FFMPEG_THREADS", "0"), "pipe:1"]
     return args
 
 
@@ -270,13 +282,15 @@ def iter_clip(
     headers: dict[str, str] | None = None,
 ) -> Iterator[bytes]:
     """Run ffmpeg and yield encoded clip chunks."""
+    # A pipe can fill with errors while stdout is being consumed, deadlocking
+    # a long encode. Keep stderr in disk-backed scratch instead.
+    errors = tempfile.TemporaryFile()
     proc = subprocess.Popen(
         _build_ffmpeg_args(media, start, duration, fmt, headers),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=errors,
     )
     assert proc.stdout is not None
-    assert proc.stderr is not None
 
     try:
         while True:
@@ -287,12 +301,15 @@ def iter_clip(
 
         returncode = proc.wait()
         if returncode != 0:
-            stderr = proc.stderr.read().decode(errors="replace")
+            errors.seek(0)
+            stderr = errors.read(16384).decode(errors="replace")
             raise RuntimeError(f"ffmpeg failed: {stderr}")
     finally:
         if proc.poll() is None:
             proc.kill()
             proc.wait()
+        proc.stdout.close()
+        errors.close()
 
 
 def iter_youtube_clip(

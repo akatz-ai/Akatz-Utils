@@ -212,9 +212,10 @@
         addCropParams(body);
         const res = await fetch("/api/imgsizer/export", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...window.akatzExport.headers() },
             body: JSON.stringify(body),
         });
+        if (await window.akatzExport.saved(res)) return;
         if (!res.ok) return;
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);

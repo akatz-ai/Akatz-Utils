@@ -1,0 +1,25 @@
+[Unit]
+Description=Akatz Utils shared-drive processing service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/dev/services/akatz-utils
+ExecStart=%h/dev/services/akatz-utils/.venv/bin/python -m launcher --host 127.0.0.1 --port 5000 --no-browser
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=AKATZ_SHARED_ROOT=/mnt/shared
+Environment=AKATZ_CLIP_JOB_ROOT=/mnt/shared/Projects/Akatz-Utils/browser-jobs
+Environment=TMPDIR=/mnt/shared/Projects/Akatz-Utils/scratch
+Environment=AKATZ_FFMPEG_PRESET=veryfast
+Environment=AKATZ_FFMPEG_THREADS=4
+Environment=IMAGEIO_FFMPEG_EXE=/usr/bin/ffmpeg
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=30
+UMask=0022
+
+[Install]
+WantedBy=default.target

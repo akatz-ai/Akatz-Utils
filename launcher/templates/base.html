@@ -23,8 +23,16 @@
         </div>
     </nav>
     <main class="container">
+        {% if config.SHARED_ROOT and request.path not in ['/', '/ytclipper'] %}
+        <div class="panel" style="padding: 1rem; margin-bottom: 1rem">
+            <label><input type="checkbox" id="sharedExportEnabled"> Save exports directly to shared drive</label>
+            <input type="text" id="sharedExportFolder" value="Projects/Akatz-Utils/exports" aria-label="Shared-drive export folder" style="margin-top: 0.6rem; width: 100%">
+            <p id="sharedExportStatus" role="status"></p>
+        </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </main>
+    <script src="{{ url_for('static', filename='js/shared-export.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

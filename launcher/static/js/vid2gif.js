@@ -173,7 +173,7 @@
 
     $("#downloadBtn").addEventListener("click", () => {
         if (!taskId) return;
-        window.location.href = `/api/vid2gif/download/${taskId}`;
+        window.akatzExport.download(`/api/vid2gif/download/${taskId}`);
     });
 
     function showError(msg) {
