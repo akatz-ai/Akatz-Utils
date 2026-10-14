@@ -25,14 +25,14 @@ In YouTube Clipper, load a video, choose its start/end and format, then:
   **Browse folders**. New folders are created on save. An optional filename
   overrides the video title; name collisions get a suffix instead of overwriting.
 
-For long MP4 selections, enable **Fast MP4** to copy the source video stream
+**Fast MP4** is enabled by default to copy the source video stream
 without video re-encoding. This retains its source codec and resolution; cuts
 start near keyframes and may not match the exact requested timestamps. Leave
 it off for precise H.264 encoding. Audio is converted to AAC in both modes.
 
 Jobs run in the background. Returning to the page reconnects to the last job.
 Use **Cancel Clip** to stop an active encode and discard its partial output;
-then change options (for example, enable Fast MP4) and start again. If the
+then change options and start again. If the
 job is still fetching YouTube metadata, cancellation takes effect when that
 request returns. Completed files are retained when cancellation arrives late.
 Only one YouTube clip encodes at a time, so repeated requests cannot exhaust

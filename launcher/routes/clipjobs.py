@@ -107,7 +107,7 @@ def create_job():
         fmt = data.get("format", "mp3")
         if fmt not in {"mp3", "flac", "mp4"}:
             raise ValueError("Unsupported format")
-        copy_video = data.get("copy_video") is True and fmt == "mp4"
+        copy_video = data.get("copy_video", True) is True and fmt == "mp4"
         destination = data.get("destination", "browser")
         if destination not in {"browser", "shared"}:
             raise ValueError("Choose browser download or shared-drive save")

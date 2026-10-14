@@ -487,7 +487,7 @@ async function followJob(id) {
             }
             if (job.state === "error") throw new Error(job.error);
             if (job.state === "cancelled") {
-                showStatus("Clip cancelled. You can enable Fast MP4 and start again.", "info");
+                showStatus("Clip cancelled. Adjust options and start again.", "info");
                 break;
             }
             if (job.state === "complete") {
