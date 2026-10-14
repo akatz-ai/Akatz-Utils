@@ -5,7 +5,7 @@ window.akatzExport = {
     },
     headers() {
         const folder = this.folder();
-        return folder !== null ? {"X-Akatz-Save-Folder": folder || "Projects/Akatz-Utils/exports"} : {};
+        return folder !== null ? {"X-Akatz-Save-Folder": encodeURIComponent(folder || "Projects/Akatz-Utils/exports")} : {};
     },
     async saved(response) {
         if (!response.headers.get("Content-Type")?.includes("application/json")) return false;

@@ -4,6 +4,7 @@ import os
 import subprocess
 import uuid
 from pathlib import Path
+from urllib.parse import unquote
 
 from flask import current_app
 
@@ -54,7 +55,7 @@ def configure_storage(app):
             try:
                 check_storage(2 if request.method == "POST" else 0)
                 if request.headers.get("X-Akatz-Save-Folder"):
-                    shared_folder(request.headers["X-Akatz-Save-Folder"])
+                    shared_folder(unquote(request.headers["X-Akatz-Save-Folder"]))
             except ValueError as error:
                 return jsonify(error=str(error)), 400
             except RuntimeError as error:
@@ -73,7 +74,7 @@ def configure_storage(app):
         partial = None
         try:
             check_storage(2)
-            target_dir = shared_folder(folder)
+            target_dir = shared_folder(unquote(folder))
             target_dir.mkdir(parents=True, exist_ok=True)
             _, options = parse_options_header(response.headers.get("Content-Disposition", ""))
             filename = Path(options.get("filename", "export")).name
