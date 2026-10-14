@@ -6,6 +6,9 @@ const playerSection = $("ytPlayerSection");
 const controlsSection = $("ytControlsSection");
 const statusEl = $("ytStatus");
 const formatSelect = $("ytFormatSelect");
+const fastMP4 = $("ytFastMP4");
+// Apply the default even when the running server has an older template cached.
+fastMP4.checked = true;
 const downloadBtn = $("ytDownloadBtn");
 const previewNotice = $("ytPreviewNotice");
 const setStartBtn = $("ytSetStartBtn");
@@ -472,7 +475,7 @@ async function followJob(id) {
                 startInput.value = formatTime(startTime);
                 updateAll();
                 formatSelect.value = job.format;
-                $("ytFastMP4").checked = !!job.copy_video;
+                fastMP4.checked = !!job.copy_video;
                 if (job.folder) saveFolder.value = job.folder;
                 if (job.requested_filename) $("ytSaveFilename").value = job.requested_filename;
                 setStartBtn.disabled = true;
@@ -528,7 +531,7 @@ async function createClip(destination) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({url: currentUrl, start: startTime, end: endTime,
                 format: formatSelect.value, destination,
-                copy_video: $("ytFastMP4").checked,
+                copy_video: fastMP4.checked,
                 folder: saveFolder.value.trim(), filename: $("ytSaveFilename").value.trim()}),
         });
         localStorage.setItem(jobKey, job.id);
