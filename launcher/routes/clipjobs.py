@@ -17,14 +17,17 @@ from .ytclipper import _content_disposition
 
 bp = Blueprint("clipjobs", __name__)
 _worker_lock = threading.Lock()
+_controls_lock = threading.Lock()
+_cancel_events: dict[str, threading.Event] = {}
 
 
-def job_root():
+def job_root(create=True):
     configured = current_app.config.get("CLIP_JOB_ROOT")
     root = Path(configured) if configured else Path(tempfile.gettempdir()) / "akatz-clip-jobs"
     if current_app.config.get("SHARED_ROOT"):
         root = shared_folder(root)
-    root.mkdir(parents=True, exist_ok=True)
+    if create:
+        root.mkdir(parents=True, exist_ok=True)
     return root
 
 
@@ -39,7 +42,7 @@ def read_job(job_id):
     if not isinstance(job_id, str) or not re.fullmatch(r"[a-f0-9]{32}", job_id):
         return None
     try:
-        return json.loads((job_root() / f"{job_id}.json").read_text())
+        return json.loads((job_root(create=False) / f"{job_id}.json").read_text())
     except FileNotFoundError:
         return None
 
@@ -49,7 +52,7 @@ def cleanup_browser_jobs(root):
     for manifest in root.glob("*.json"):
         try:
             job = json.loads(manifest.read_text())
-            if job['state'] in {"complete", "error"} and job['destination'] == "browser" and time.time() - job['created'] > 86400:
+            if job['state'] in {"complete", "error", "cancelled"} and job['destination'] == "browser" and time.time() - job['created'] > 86400:
                 path = Path(job.get("path", ""))
                 if path.parent == root and path.name.startswith(job['id'] + "-"):
                     path.unlink(missing_ok=True)
@@ -126,16 +129,27 @@ def create_job():
         root = job_root()
         cleanup_browser_jobs(root)
         job = dict(id=uuid.uuid4().hex, state="processing", destination=destination,
-                   url=url, start=start, end=end, format=fmt, copy_video=copy_video, created=time.time(), bytes=0)
+                   url=url, start=start, end=end, format=fmt, copy_video=copy_video,
+                   folder=str(folder) if folder is not None else "", requested_filename=name,
+                   created=time.time(), bytes=0)
         write_job(root, job)
         app = current_app._get_current_object()
+        cancel_event = threading.Event()
+        with _controls_lock:
+            _cancel_events[job['id']] = cancel_event
+
+        def check_cancelled():
+            if cancel_event.is_set():
+                raise InterruptedError("Clip cancelled")
 
         def run():
             partial = None
             try:
                 with app.app_context():
                     check_storage(budget)
+                    check_cancelled()
                     sources, title = extract_media_sources(url, fmt)
+                    check_cancelled()
                     filename = name or title
                     if filename.lower().endswith('.' + fmt):
                         filename = filename[:-(len(fmt) + 1)]
@@ -151,7 +165,8 @@ def create_job():
                     partial = target_dir / f".akatz-{job['id']}.partial"
                     last_update = time.monotonic()
                     with partial.open("xb") as output:
-                        for chunk in iter_youtube_clip(url, sources, start, end - start, fmt, copy_video=copy_video):
+                        for chunk in iter_youtube_clip(url, sources, start, end - start, fmt, copy_video=copy_video, cancel_event=cancel_event):
+                            check_cancelled()
                             output.write(chunk)
                             job['bytes'] += len(chunk)
                             if job['bytes'] > budget * 1024**3:
@@ -163,31 +178,42 @@ def create_job():
                             raise RuntimeError("FFmpeg produced an empty clip")
                         output.flush()
                         os.fsync(output.fileno())
-                    # Publish atomically without overwriting existing user files.
-                    for suffix in range(1000):
-                        candidate = target if suffix == 0 else target.with_name(f"{target.stem}-{job['id'][:8]}-{suffix}{target.suffix}")
-                        try:
-                            os.link(partial, candidate)
-                            break
-                        except FileExistsError:
-                            continue
-                    else:
-                        raise RuntimeError("Could not find an unused filename")
-                    partial.unlink()
-                    job.update(state="complete", path=str(candidate), filename=filename,
-                               download_url=f"/api/ytclipper/jobs/{job['id']}/download")
-                    write_job(root, job)
+                    # Serialize cancellation with publication so a cancelled
+                    # clip never becomes a completed download or shared save.
+                    with _controls_lock:
+                        check_cancelled()
+                        for suffix in range(1000):
+                            candidate = target if suffix == 0 else target.with_name(f"{target.stem}-{job['id'][:8]}-{suffix}{target.suffix}")
+                            try:
+                                os.link(partial, candidate)
+                                break
+                            except FileExistsError:
+                                continue
+                        else:
+                            raise RuntimeError("Could not find an unused filename")
+                        partial.unlink()
+                        job.update(state="complete", path=str(candidate), filename=filename,
+                                   download_url=f"/api/ytclipper/jobs/{job['id']}/download")
+                        write_job(root, job)
             except Exception as error:
                 with app.app_context():
-                    app.logger.exception("Clip job %s failed", job['id'])
-                    job.update(state="error", error=f"Could not create clip: {error}")
-                    write_job(root, job)
+                    if cancel_event.is_set():
+                        job.update(state="cancelled")
+                    else:
+                        app.logger.exception("Clip job %s failed", job['id'])
+                        job.update(state="error", error=f"Could not create clip: {error}")
             finally:
                 try:
                     if partial is not None:
                         partial.unlink(missing_ok=True)
                 finally:
-                    _worker_lock.release()
+                    with _controls_lock:
+                        try:
+                            if job['state'] != "complete":
+                                write_job(root, job)
+                        finally:
+                            _cancel_events.pop(job['id'], None)
+                            _worker_lock.release()
 
         threading.Thread(target=run, daemon=True).start()
         return jsonify(id=job['id']), 202
@@ -198,8 +224,27 @@ def create_job():
 
 @bp.get("/api/ytclipper/jobs/<job_id>")
 def job_status(job_id):
-    job = read_job(job_id)
+    with _controls_lock:
+        job = read_job(job_id)
+        event = _cancel_events.get(job_id)
+        if job and event is not None and event.is_set():
+            job['cancel_requested'] = True
     return jsonify(job) if job else (jsonify(error="Clip job not found or expired"), 404)
+
+
+@bp.post("/api/ytclipper/jobs/<job_id>/cancel")
+def cancel_job(job_id):
+    with _controls_lock:
+        job = read_job(job_id)
+        if not job:
+            return jsonify(error="Clip job not found or expired"), 404
+        if job['state'] != "processing":
+            return jsonify(job)
+        event = _cancel_events.get(job_id)
+        if event is None:
+            return jsonify(error="This clip is no longer running on this server"), 409
+        event.set()
+        return jsonify(id=job_id, state="processing", cancel_requested=True), 202
 
 
 @bp.get("/api/ytclipper/jobs/<job_id>/download")

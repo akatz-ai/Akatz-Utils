@@ -436,8 +436,10 @@ function parseTime(value) {
 const saveBtn = $("ytSaveBtn");
 const saveFolder = $("ytSaveFolder");
 const resultDownload = $("ytResultDownload");
+const cancelBtn = $("ytCancelBtn");
 const jobKey = "akatz-utils-clip-job";
 let processing = false;
+let activeJobId = null;
 
 async function jsonRequest(url, options = {}) {
     const response = await fetch(url, options);
@@ -451,15 +453,43 @@ function setProcessing(value) {
     downloadBtn.disabled = value;
     saveBtn.disabled = value;
     loadBtn.disabled = value;
+    cancelBtn.hidden = !activeJobId;
 }
 
 async function followJob(id) {
+    activeJobId = id;
+    cancelBtn.disabled = false;
     setProcessing(true);
     resultDownload.hidden = true;
     try {
         while (true) {
             const job = await jsonRequest(`/api/ytclipper/jobs/${id}`);
-            if (job.state === "error") { localStorage.removeItem(jobKey); throw new Error(job.error); }
+            if (controlsSection.hidden && job.url) {
+                currentUrl = job.url;
+                urlInput.value = job.url;
+                initControls(job.end);
+                startTime = job.start;
+                startInput.value = formatTime(startTime);
+                updateAll();
+                formatSelect.value = job.format;
+                $("ytFastMP4").checked = !!job.copy_video;
+                if (job.folder) saveFolder.value = job.folder;
+                if (job.requested_filename) $("ytSaveFilename").value = job.requested_filename;
+                setStartBtn.disabled = true;
+                setEndBtn.disabled = true;
+                controlsSection.hidden = false;
+                previewNotice.textContent = "Clip settings restored. Load the video to show its preview and full timeline.";
+                previewNotice.hidden = false;
+            }
+            if (["error", "cancelled", "complete"].includes(job.state)) {
+                activeJobId = null;
+                localStorage.removeItem(jobKey);
+            }
+            if (job.state === "error") throw new Error(job.error);
+            if (job.state === "cancelled") {
+                showStatus("Clip cancelled. You can enable Fast MP4 and start again.", "info");
+                break;
+            }
             if (job.state === "complete") {
                 localStorage.removeItem(jobKey);
                 resultDownload.href = job.download_url;
@@ -472,7 +502,12 @@ async function followJob(id) {
                 }
                 break;
             }
-            showStatus(`Processing on the server… ${(job.bytes / 1024 / 1024).toFixed(1)} MB written. You can return to this page while it finishes.`, "info");
+            if (job.cancel_requested) {
+                cancelBtn.disabled = true;
+                showStatus("Cancelling clip…", "info");
+            } else {
+                showStatus(`Processing on the server… ${(job.bytes / 1024 / 1024).toFixed(1)} MB written. You can return to this page while it finishes.`, "info");
+            }
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
     } catch (error) {
@@ -530,6 +565,19 @@ async function browseFolders(path) {
 $("ytBrowseBtn").addEventListener("click", () => browseFolders(""));
 saveBtn.addEventListener("click", () => createClip("shared"));
 downloadBtn.addEventListener("click", () => createClip("browser"));
+cancelBtn.addEventListener("click", async () => {
+    if (!activeJobId) return;
+    const id = activeJobId;
+    cancelBtn.disabled = true;
+    showStatus("Cancelling clip…", "info");
+    try {
+        await jsonRequest(`/api/ytclipper/jobs/${id}/cancel`, {method: "POST"});
+        if (!processing) await followJob(id);
+    } catch (error) {
+        cancelBtn.disabled = false;
+        showStatus(error.message, "error");
+    }
+});
 
 (async () => {
     try {

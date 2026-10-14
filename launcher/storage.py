@@ -51,6 +51,10 @@ def configure_storage(app):
     @app.before_request
     def verify_processing_storage():
         from flask import jsonify, request
+        # Cancelling releases resources and must work even when the drive is
+        # below its reserve. It does not begin processing or create media.
+        if request.endpoint == "clipjobs.cancel_job":
+            return
         if request.path.startswith("/api/"):
             try:
                 check_storage(2 if request.method == "POST" else 0)

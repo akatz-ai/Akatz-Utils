@@ -31,6 +31,10 @@ start near keyframes and may not match the exact requested timestamps. Leave
 it off for precise H.264 encoding. Audio is converted to AAC in both modes.
 
 Jobs run in the background. Returning to the page reconnects to the last job.
+Use **Cancel Clip** to stop an active encode and discard its partial output;
+then change options (for example, enable Fast MP4) and start again. If the
+job is still fetching YouTube metadata, cancellation takes effect when that
+request returns. Completed files are retained when cancellation arrives late.
 Only one YouTube clip encodes at a time, so repeated requests cannot exhaust
 the hub. Jobs, status manifests, and browser-download outputs live under
 `/mnt/shared/Projects/Akatz-Utils/browser-jobs`. Completed temporary browser

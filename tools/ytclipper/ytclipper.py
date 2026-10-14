@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
@@ -282,32 +283,58 @@ def iter_clip(
     duration: float,
     fmt: ClipFormat,
     headers: dict[str, str] | None = None,
-    *, copy_video: bool = False,
+    *, copy_video: bool = False, cancel_event: threading.Event | None = None,
 ) -> Iterator[bytes]:
     """Run ffmpeg and yield encoded clip chunks."""
     # A pipe can fill with errors while stdout is being consumed, deadlocking
     # a long encode. Keep stderr in disk-backed scratch instead.
+    if cancel_event is not None and cancel_event.is_set():
+        raise InterruptedError("Clip cancelled")
     errors = tempfile.TemporaryFile()
-    proc = subprocess.Popen(
-        _build_ffmpeg_args(media, start, duration, fmt, headers, copy_video=copy_video),
-        stdout=subprocess.PIPE,
-        stderr=errors,
-    )
+    try:
+        proc = subprocess.Popen(
+            _build_ffmpeg_args(media, start, duration, fmt, headers, copy_video=copy_video),
+            stdout=subprocess.PIPE,
+            stderr=errors,
+        )
+    except Exception:
+        errors.close()
+        raise
     assert proc.stdout is not None
+    finished = threading.Event()
+    watcher = None
+    if cancel_event is not None:
+        def stop_on_cancel():
+            while not finished.wait(0.1):
+                if cancel_event.is_set():
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        pass
+                    return
+        watcher = threading.Thread(target=stop_on_cancel, daemon=True)
+        watcher.start()
 
     try:
         while True:
             chunk = proc.stdout.read(CHUNK_SIZE)
+            if cancel_event is not None and cancel_event.is_set():
+                raise InterruptedError("Clip cancelled")
             if not chunk:
                 break
             yield chunk
 
         returncode = proc.wait()
+        if cancel_event is not None and cancel_event.is_set():
+            raise InterruptedError("Clip cancelled")
         if returncode != 0:
             errors.seek(0)
             stderr = errors.read(16384).decode(errors="replace")
             raise RuntimeError(f"ffmpeg failed: {stderr}")
     finally:
+        finished.set()
+        if watcher is not None:
+            watcher.join()
         if proc.poll() is None:
             proc.kill()
             proc.wait()
@@ -321,7 +348,7 @@ def iter_youtube_clip(
     start: float,
     duration: float,
     fmt: ClipFormat,
-    *, copy_video: bool = False,
+    *, copy_video: bool = False, cancel_event: threading.Event | None = None,
 ) -> Iterator[bytes]:
     """Encode a clip, recovering from unopened Google media URLs when possible."""
     current_media = media
@@ -333,6 +360,8 @@ def iter_youtube_clip(
     retry_clients: tuple[str | None, ...] = (None, "android")
 
     for attempt in range(len(retry_clients) + 1):
+        if cancel_event is not None and cancel_event.is_set():
+            raise InterruptedError("Clip cancelled")
         if attempt:
             current_media, _ = extract_media_sources(
                 youtube_url,
@@ -341,7 +370,7 @@ def iter_youtube_clip(
             )
 
         try:
-            for chunk in iter_clip(current_media, start, duration, fmt, copy_video=copy_video):
+            for chunk in iter_clip(current_media, start, duration, fmt, copy_video=copy_video, cancel_event=cancel_event):
                 emitted_output = True
                 yield chunk
             return

@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -109,8 +110,72 @@ class ClipJobTests(unittest.TestCase):
         recover_jobs(self.app)
         self.assertEqual(self.client.get('/api/ytclipper/jobs/' + 'a'*32).json['state'], 'error')
 
+    def test_cancel_discards_partial_and_allows_retry(self):
+        started = threading.Event()
+        def encode(*args, cancel_event=None, **kwargs):
+            yield b'partial'
+            started.set()
+            if not cancel_event.wait(2):
+                raise RuntimeError('Cancellation did not arrive')
+            raise InterruptedError('Clip cancelled')
+        with patch('launcher.routes.clipjobs.iter_youtube_clip', side_effect=encode):
+            response = self.client.post('/api/ytclipper/jobs', json=self.payload)
+            job_id = response.json['id']
+            self.assertTrue(started.wait(2))
+            response = self.client.post('/api/ytclipper/jobs/' + job_id + '/cancel')
+            self.assertEqual(response.status_code, 202)
+            self.assertTrue(response.json['cancel_requested'])
+            job = self.wait(job_id)
+        self.assertEqual(job['state'], 'cancelled')
+        self.assertEqual(list((self.root / 'clips').iterdir()), [])
+        self.assertEqual(self.client.post('/api/ytclipper/jobs/' + job_id + '/cancel').json['state'], 'cancelled')
+        with patch('launcher.routes.clipjobs.iter_youtube_clip', return_value=iter([b'finished'])):
+            response = self.client.post('/api/ytclipper/jobs', json=self.payload)
+            self.assertEqual(response.status_code, 202)
+            job = self.wait(response.json['id'])
+        self.assertEqual(job['state'], 'complete')
+        response = self.client.post('/api/ytclipper/jobs/' + job['id'] + '/cancel')
+        self.assertEqual(response.json['state'], 'complete')
+        self.assertEqual(Path(job['path']).read_bytes(), b'finished')
+
+    def test_cancel_during_metadata_prevents_encoding(self):
+        started, finish = threading.Event(), threading.Event()
+        self.addCleanup(finish.set)
+        def metadata(*args):
+            started.set()
+            finish.wait(2)
+            return [], 'Test'
+        with patch('launcher.routes.clipjobs.extract_media_sources', side_effect=metadata), patch('launcher.routes.clipjobs.iter_youtube_clip') as encoder:
+            response = self.client.post('/api/ytclipper/jobs', json=self.payload)
+            job_id = response.json['id']
+            self.assertTrue(started.wait(2))
+            self.client.post('/api/ytclipper/jobs/' + job_id + '/cancel')
+            self.assertTrue(self.client.get('/api/ytclipper/jobs/' + job_id).json['cancel_requested'])
+            finish.set()
+            self.assertEqual(self.wait(job_id)['state'], 'cancelled')
+            encoder.assert_not_called()
+
 
 class ExportSaveTests(unittest.TestCase):
+    def test_cancel_is_allowed_below_storage_reserve(self):
+        from launcher.routes.clipjobs import _cancel_events
+        with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'AKATZ_SHARED_ROOT': ''}):
+            app = Flask(__name__)
+            configure_storage(app)
+            app.config.update(SHARED_ROOT=directory, CLIP_JOB_ROOT=directory)
+            app.register_blueprint(bp)
+            job_id = 'b' * 32
+            (Path(directory) / (job_id + '.json')).write_text(json.dumps(dict(id=job_id, state='processing')))
+            event = threading.Event()
+            _cancel_events[job_id] = event
+            try:
+                with patch('launcher.storage.check_storage', side_effect=RuntimeError('drive below reserve')):
+                    response = app.test_client().post('/api/ytclipper/jobs/' + job_id + '/cancel')
+                self.assertEqual(response.status_code, 202)
+                self.assertTrue(event.is_set())
+            finally:
+                _cancel_events.pop(job_id, None)
+
     def test_other_tools_save_directly_on_server(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict('os.environ', {'AKATZ_SHARED_ROOT': ''}):
             app = Flask(__name__)
