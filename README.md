@@ -25,6 +25,11 @@ In YouTube Clipper, load a video, choose its start/end and format, then:
   **Browse folders**. New folders are created on save. An optional filename
   overrides the video title; name collisions get a suffix instead of overwriting.
 
+For long MP4 selections, enable **Fast MP4** to copy the source video stream
+without video re-encoding. This retains its source codec and resolution; cuts
+start near keyframes and may not match the exact requested timestamps. Leave
+it off for precise H.264 encoding. Audio is converted to AAC in both modes.
+
 Jobs run in the background. Returning to the page reconnects to the last job.
 Only one YouTube clip encodes at a time, so repeated requests cannot exhaust
 the hub. Jobs, status manifests, and browser-download outputs live under
@@ -64,7 +69,7 @@ mkdir -p ~/.config/systemd/user
 cp deploy/akatz-utils-hub.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now akatz-utils-hub.service
-tailscale serve --bg --https=9447 http://127.0.0.1:5000
+sudo tailscale serve --bg --https=9447 http://127.0.0.1:5000
 ```
 
 The Python runtime is stored on the verified `/mnt/hub-ssd` ext4 filesystem

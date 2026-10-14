@@ -493,6 +493,7 @@ async function createClip(destination) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({url: currentUrl, start: startTime, end: endTime,
                 format: formatSelect.value, destination,
+                copy_video: $("ytFastMP4").checked,
                 folder: saveFolder.value.trim(), filename: $("ytSaveFilename").value.trim()}),
         });
         localStorage.setItem(jobKey, job.id);

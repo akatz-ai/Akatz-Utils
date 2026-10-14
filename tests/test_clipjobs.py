@@ -63,7 +63,7 @@ class ClipJobTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/ytclipper/jobs/' + job['id']).json['state'], 'complete')
 
     def test_failure_does_not_publish_partial_clip(self):
-        def fail(*args):
+        def fail(*args, **kwargs):
             yield b'partial'
             raise RuntimeError('encoding failed')
         with patch('launcher.routes.clipjobs.iter_youtube_clip', side_effect=fail), self.assertLogs(self.app.logger):

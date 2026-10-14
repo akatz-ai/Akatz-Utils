@@ -104,6 +104,7 @@ def create_job():
         fmt = data.get("format", "mp3")
         if fmt not in {"mp3", "flac", "mp4"}:
             raise ValueError("Unsupported format")
+        copy_video = data.get("copy_video") is True and fmt == "mp4"
         destination = data.get("destination", "browser")
         if destination not in {"browser", "shared"}:
             raise ValueError("Choose browser download or shared-drive save")
@@ -125,7 +126,7 @@ def create_job():
         root = job_root()
         cleanup_browser_jobs(root)
         job = dict(id=uuid.uuid4().hex, state="processing", destination=destination,
-                   url=url, start=start, end=end, format=fmt, created=time.time(), bytes=0)
+                   url=url, start=start, end=end, format=fmt, copy_video=copy_video, created=time.time(), bytes=0)
         write_job(root, job)
         app = current_app._get_current_object()
 
@@ -150,7 +151,7 @@ def create_job():
                     partial = target_dir / f".akatz-{job['id']}.partial"
                     last_update = time.monotonic()
                     with partial.open("xb") as output:
-                        for chunk in iter_youtube_clip(url, sources, start, end - start, fmt):
+                        for chunk in iter_youtube_clip(url, sources, start, end - start, fmt, copy_video=copy_video):
                             output.write(chunk)
                             job['bytes'] += len(chunk)
                             if job['bytes'] > budget * 1024**3:

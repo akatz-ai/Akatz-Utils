@@ -234,6 +234,7 @@ def _build_ffmpeg_args(
     duration: float,
     fmt: ClipFormat,
     headers: dict[str, str] | None = None,
+    *, copy_video: bool = False,
 ) -> list[str]:
     media_inputs = _coerce_media_inputs(media, headers)
     args = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin"]
@@ -260,11 +261,12 @@ def _build_ffmpeg_args(
         if audio_input_index is not None:
             args += ["-map", f"{audio_input_index}:a:0?"]
 
+        if copy_video:
+            args += ["-c:v", "copy", "-avoid_negative_ts", "make_zero"]
+        else:
+            args += ["-c:v", "libx264", "-preset", os.environ.get("AKATZ_FFMPEG_PRESET", "medium"),
+                     "-crf", "18", "-pix_fmt", "yuv420p"]
         args += [
-            "-c:v", "libx264",
-            "-preset", os.environ.get("AKATZ_FFMPEG_PRESET", "medium"),
-            "-crf", "18",
-            "-pix_fmt", "yuv420p",
             "-c:a", "aac",
             "-b:a", "192k",
             "-movflags", "frag_keyframe+empty_moov",
@@ -280,13 +282,14 @@ def iter_clip(
     duration: float,
     fmt: ClipFormat,
     headers: dict[str, str] | None = None,
+    *, copy_video: bool = False,
 ) -> Iterator[bytes]:
     """Run ffmpeg and yield encoded clip chunks."""
     # A pipe can fill with errors while stdout is being consumed, deadlocking
     # a long encode. Keep stderr in disk-backed scratch instead.
     errors = tempfile.TemporaryFile()
     proc = subprocess.Popen(
-        _build_ffmpeg_args(media, start, duration, fmt, headers),
+        _build_ffmpeg_args(media, start, duration, fmt, headers, copy_video=copy_video),
         stdout=subprocess.PIPE,
         stderr=errors,
     )
@@ -318,6 +321,7 @@ def iter_youtube_clip(
     start: float,
     duration: float,
     fmt: ClipFormat,
+    *, copy_video: bool = False,
 ) -> Iterator[bytes]:
     """Encode a clip, recovering from unopened Google media URLs when possible."""
     current_media = media
@@ -337,7 +341,7 @@ def iter_youtube_clip(
             )
 
         try:
-            for chunk in iter_clip(current_media, start, duration, fmt):
+            for chunk in iter_clip(current_media, start, duration, fmt, copy_video=copy_video):
                 emitted_output = True
                 yield chunk
             return
